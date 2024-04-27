@@ -11,57 +11,6 @@ services:
       - ${DATA_ROOT}/qbittorrent/torrents/movies:/data/torrents/movies
       - ${NAS_MEDIA_ROOT}/movies:/data/nas/movies
 
-  calibre_novelas:
-    image: ghcr.io/linuxserver/calibre
-    container_name: calibre_novelas
-    environment:
-      - PUID=${USER_ID}
-      - PGID=${GROUP_ID}
-      - TZ=${TIMEZONE}
-    volumes:
-      - ${CONFIG_ROOT}/calibre/config:/config
-      - ${CONFIG_ROOT}/calibre/upload:/upload
-      - ${CONFIG_ROOT}/calibre/plugins:/plugins
-      - ${NAS_MEDIA_ROOT}/calibre-libraries/calibre-library-novelas:/Calibre_Library
-    ports:
-      - 8199:8181 # desktop gui HTTPS
-      - 8181:8081 # webserver gui
-    restart: unless-stopped
-
-  calibre_tech:
-    image: ghcr.io/linuxserver/calibre
-    container_name: calibre_tech
-    environment:
-      - PUID=${USER_ID}
-      - PGID=${GROUP_ID}
-      - TZ=${TIMEZONE}
-    volumes:
-      - ${CONFIG_ROOT}/calibre/config:/config
-      - ${CONFIG_ROOT}/calibre/upload:/upload
-      - ${CONFIG_ROOT}/calibre/plugins:/plugins
-      - ${NAS_MEDIA_ROOT}/calibre-libraries/calibre-library-tech:/Calibre_Library
-    ports:
-      - 8299:8181 # desktop gui HTTPS
-      - 8281:8081 # webserver gui
-    restart: unless-stopped
-
-  calibre_psico:
-    image: ghcr.io/linuxserver/calibre
-    container_name: calibre_psico
-    environment:
-      - PUID=${USER_ID}
-      - PGID=${GROUP_ID}
-      - TZ=${TIMEZONE}
-    volumes:
-      - ${CONFIG_ROOT}/calibre/config:/config
-      - ${CONFIG_ROOT}/calibre/upload:/upload
-      - ${CONFIG_ROOT}/calibre/plugins:/plugins
-      - ${NAS_MEDIA_ROOT}/calibre-libraries/calibre-library-psico:/Calibre_Library
-    ports:
-      - 8399:8181 # desktop gui HTTPS
-      - 8381:8081 # webserver gui
-    restart: unless-stopped
-
         # vpn:
         #   image: ghcr.io/qdm12/gluetun
         #   container_name: gluetun
@@ -104,5 +53,4 @@ services:
         #     timeout: 10s
         #     retries: 3
         #   restart: always
-
 

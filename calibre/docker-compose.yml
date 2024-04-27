@@ -1,0 +1,17 @@
+services:
+  calibre:
+    image: ghcr.io/linuxserver/calibre
+    container_name: calibre
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+    volumes:
+      - ${CONFIG_ROOT}/calibre/config:/config
+      - ${CONFIG_ROOT}/calibre/plugins:/plugins
+      - ${CONFIG_ROOT}/calibre/upload:/upload
+      - ${NAS_MEDIA_ROOT}/calibre-libraries:/calibre-libraries
+    ports:
+      - 8181:8181 # desktop gui HTTPS
+      - 8081:8081 # webserver gui
+    restart: unless-stopped

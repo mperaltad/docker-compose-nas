@@ -1,0 +1,49 @@
+version: '3.8'
+
+# Inspired by https://sahsumit.medium.com/server-monitoring-using-prometheus-and-grafana-a041b3333fa7
+# Follow instructions from link above for an easy
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - prometheus-network
+    ports:
+      - 9090:9090
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - prometheus-network
+    ports:
+      - 3000:3000
+  node_exporter:
+    image: quay.io/prometheus/node-exporter
+    container_name: node_exporter
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    ports:
+      - 9100:9100
+    restart: unless-stopped
+    volumes:
+      - '/:/host:ro,rslave'
+    networks:
+      - prometheus-network
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  prometheus-network:
+    driver: bridge
