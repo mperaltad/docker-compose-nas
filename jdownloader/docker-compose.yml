@@ -1,0 +1,9 @@
+services:
+  jdownloader-2:
+    image: jlesage/jdownloader-2
+    ports:
+      - 5800:5800
+    volumes:
+      - ${CONFIG_ROOT}/jdownloader:/config
+      - ${DATA_ROOT}/jdownloader:/output
+    restart: unless-stopped
