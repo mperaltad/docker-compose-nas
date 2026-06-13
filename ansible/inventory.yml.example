@@ -1,0 +1,7 @@
+all:
+  children:
+    vps:
+      hosts:
+        headscale-server:
+          ansible_host: 192.168.1.1 # REPLACE WITH YOUR VPS PUBLIC IP
+          ansible_user: root # OR YOUR VPS USER

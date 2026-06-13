@@ -1,0 +1,10 @@
+---
+- name: Restart zramswap
+  ansible.builtin.systemd:
+    name: zramswap
+    state: restarted
+
+- name: Restart Headscale
+  ansible.builtin.systemd:
+    name: headscale
+    state: restarted

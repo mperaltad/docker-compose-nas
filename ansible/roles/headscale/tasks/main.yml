@@ -1,0 +1,171 @@
+---
+# System: Update repositories, upgrade packages, and clean residual caches
+- name: Update apt repositories, upgrade packages and clean cache
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+    autoclean: yes
+    autoremove: yes
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+# Base dependencies
+- name: Install base dependencies (wget, curl, ufw, zram-tools, gnupg2, apt-transport-https)
+  ansible.builtin.apt:
+    name:
+      - wget
+      - curl
+      - ufw
+      - zram-tools
+      - gnupg2
+      - apt-transport-https
+    state: present
+
+# Tailscale repository and installation
+- name: Add Tailscale GPG key
+  ansible.builtin.get_url:
+    url: https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+
+- name: Add Tailscale repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/debian bookworm main"
+    state: present
+    filename: tailscale
+
+- name: Install Tailscale client
+  ansible.builtin.apt:
+    name: tailscale
+    state: present
+    update_cache: yes
+
+- name: Ensure Tailscale service is started and enabled
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: started
+    enabled: yes
+
+# Resource Optimization: zram (50%, zstd)
+- name: Configure zram to 50% with zstd algorithm
+  ansible.builtin.copy:
+    dest: /etc/default/zramswap
+    content: |
+      ALGO=zstd
+      PERCENT=50
+    mode: '0644'
+  notify: Restart zramswap
+
+# Network & Resource Optimization: sysctl
+- name: Configure sysctl for BBR, IP forwarding, and swappiness
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/99-zero-trust.conf
+    reload: yes
+  loop:
+    - { key: 'vm.swappiness', value: '10' }
+    - { key: 'net.ipv4.ip_forward', value: '1' }
+    - { key: 'net.ipv6.conf.all.forwarding', value: '1' }
+    - { key: 'net.core.default_qdisc', value: 'fq' }
+    - { key: 'net.ipv4.tcp_congestion_control', value: 'bbr' }
+
+# Headscale
+- name: Download Headscale binary v0.23.0
+  ansible.builtin.get_url:
+    url: "https://github.com/juanfont/headscale/releases/download/v0.23.0/headscale_0.23.0_linux_amd64"
+    dest: /usr/local/bin/headscale
+    mode: '0755'
+
+- name: Create Headscale base directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/headscale
+    - /var/lib/headscale
+    - /var/run/headscale
+
+# Firewall (UFW)
+- name: Enable UFW and configure default deny policy
+  community.general.ufw:
+    state: enabled
+    default: deny
+    direction: incoming
+
+- name: Allow default outgoing traffic
+  community.general.ufw:
+    default: allow
+    direction: outgoing
+
+- name: Allow Zero Trust network and control ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop:
+    - { port: '443', proto: 'tcp' }   # HTTPS / DERP
+    - { port: '80', proto: 'tcp' }    # HTTP (Let's Encrypt)
+    - { port: '41641', proto: 'udp' } # WireGuard
+    - { port: '22', proto: 'tcp' }    # SSH
+
+# SECURITY NOTE: 
+# Once the node has successfully joined the Zero Trust mesh (Tailscale), 
+# you can manually execute:
+# `ufw delete allow 22/tcp` 
+# to close port 22 from the public internet.
+
+# Headscale Configuration and Service
+- name: Deploy Headscale configuration (config.yaml)
+  ansible.builtin.template:
+    src: headscale-config.yaml.j2
+    dest: /etc/headscale/config.yaml
+    mode: '0600'
+  notify: Restart Headscale
+
+- name: Create Headscale systemd service unit
+  ansible.builtin.template:
+    src: headscale.service.j2
+    dest: /etc/systemd/system/headscale.service
+    mode: '0644'
+  notify: Restart Headscale
+
+- name: Enable and start Headscale service
+  ansible.builtin.systemd:
+    name: headscale
+    state: started
+    enabled: yes
+    daemon_reload: yes
+
+# Zero Trust Environment Bootstrap
+- name: Wait for Headscale API to be ready
+  ansible.builtin.command: headscale users list
+  register: headscale_status
+  until: headscale_status.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+
+- name: Check if Headscale base user exists
+  ansible.builtin.command: headscale users list -o json
+  register: users_list
+  changed_when: false
+
+- name: Create base user in Headscale
+  ansible.builtin.command: "headscale users create {{ headscale_user }}"
+  when: "headscale_user not in (users_list.stdout | from_json | map(attribute='name') | list)"
+
+- name: Check if initial pre-auth key has been generated
+  ansible.builtin.stat:
+    path: /var/lib/headscale/initial-authkey.txt
+  register: authkey_file
+
+- name: Generate initial pre-auth key (reusable, 30 days)
+  ansible.builtin.shell: |
+    set -o pipefail
+    headscale preauthkeys create --user {{ headscale_user }} --reusable --expiration 30d --output json | jq -r '.key' > /var/lib/headscale/initial-authkey.txt
+    chmod 600 /var/lib/headscale/initial-authkey.txt
+  args:
+    executable: /bin/bash
+  when: not authkey_file.stat.exists

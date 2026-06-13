@@ -1,0 +1,56 @@
+services:
+  nextcloud:
+    image: lscr.io/linuxserver/nextcloud:latest
+    container_name: nextcloud
+    environment:
+      - PUID=${USER_ID:-1000}
+      - PGID=${GROUP_ID:-1000}
+      - TZ=${TIMEZONE:-Europe/Madrid}
+      - MYSQL_HOST=${NEXTCLOUD_DB_HOST:-nextcloud_db}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:-nextcloud}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER:-nextcloud}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/nextcloud:/config
+      - type: bind
+        source: /mnt/backups-disk/nextcloud
+        target: /data
+        bind:
+          create_host_path: false
+      - /mnt/backups-disk/.mounted:/mounted_check:ro
+      - ${DATA_ROOT}:/data_root:rw
+    ports:
+      - 4430:443
+    networks:
+      - nextcloud-network
+      - default
+    depends_on:
+      nextcloud_db:
+        condition: service_healthy
+    restart: always
+
+  nextcloud_db:
+    image: lscr.io/linuxserver/mariadb:latest
+    container_name: nextcloud_db
+    environment:
+      - PUID=${USER_ID:-1000}
+      - PGID=${GROUP_ID:-1000}
+      - TZ=${TIMEZONE:-Europe/Madrid}
+      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:-nextcloud}
+      - MYSQL_USER=${NEXTCLOUD_DB_USER:-nextcloud}
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+    volumes:
+      - ${CONFIG_ROOT:-./config}/nextcloud_db:/config
+    networks:
+      - nextcloud-network
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+networks:
+  nextcloud-network:
+    driver: bridge

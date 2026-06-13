@@ -1,44 +1,19 @@
 services:
-#  traefik:
-#    image: traefik:v2.10
-#    container_name: traefik
-#    restart: always
-#    environment:
-#      - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
-#      - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
-#      - CLOUDFLARE_ZONE_API_TOKEN=${CLOUDFLARE_ZONE_API_TOKEN}
-#      - LETS_ENCRYPT_EMAIL=${LETS_ENCRYPT_EMAIL}
-#    command:
-#      - --ping=true
-#      - --providers.docker=true
-#      - --providers.docker.exposedbydefault=false
-#      - --entrypoints.web.address=:80
-#      - --entrypoints.web-secure.address=:443
-#      - --entrypoints.web.http.redirections.entryPoint.to=web-secure
-#      - --entrypoints.web.http.redirections.entryPoint.scheme=https
-#      - --entrypoints.web.http.redirections.entrypoint.permanent=true
-#      - --experimental.plugins.rewrite-body.modulename=github.com/packruler/rewrite-body
-#      - --experimental.plugins.rewrite-body.version=v1.2.0
-#      - --experimental.plugins.rewriteHeaders.modulename=github.com/XciD/traefik-plugin-rewrite-headers
-#      - --experimental.plugins.rewriteHeaders.version=v0.0.3
-#        #       - --certificatesresolvers.myresolver.acme.dnschallenge=${DNS_CHALLENGE:-true}
-#        #       - --certificatesresolvers.myresolver.acme.dnschallenge.provider=${DNS_CHALLENGE_PROVIDER:-cloudflare}
-#        #       - --certificatesresolvers.myresolver.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
-#        #       - --certificatesresolvers.myresolver.acme.caserver=${LETS_ENCRYPT_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
-#        #       - --certificatesresolvers.myresolver.acme.email=${LETS_ENCRYPT_EMAIL}
-#        #       - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
-#    ports:
-#      - "80:80"
-#      - "443:443"
-#    volumes:
-#      - ${CONFIG_ROOT:-.}/letsencrypt:/letsencrypt
-#      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-#    extra_hosts:
-#      - host.docker.internal:172.17.0.1
-#    healthcheck:
-#      test: [ "CMD", "traefik", "healthcheck", "--ping" ]
-#      interval: 30s
-#      retries: 10
+  tachidesk:
+    image: ghcr.io/suwayomi/suwayomi-server:stable
+    container_name: tachidesk
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+    volumes:
+      - ${DATA_ROOT}/tachidesk/downloads:/home/suwayomi/.local/share/Tachidesk/downloads
+      - ${DATA_ROOT}/tachidesk/files:/home/suwayomi/.local/share/Tachidesk
+    restart: always
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
 
   sonarr:
     image: lscr.io/linuxserver/sonarr
@@ -53,27 +28,10 @@ services:
       - ${DATA_ROOT}/qbittorrent/torrents/tv:/data/torrents/tv
       - ${NAS_MEDIA_ROOT}/tv:/data/nas/tv
     restart: always
-    healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:8989/sonarr/ping" ]
-      interval: 30s
-      retries: 10
-    ports:
-      - 8989:8989
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.sonarr.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/sonarr`))
-#      - traefik.http.routers.sonarr.tls=true
-#      - traefik.http.routers.sonarr.tls.certresolver=myresolver
-#      - traefik.http.services.sonarr.loadbalancer.server.port=8989
-#      - homepage.group=Media
-#      - homepage.name=Sonarr
-#      - homepage.icon=sonarr.png
-#      - homepage.href=/sonarr
-#      - homepage.description=Series management
-#      - homepage.weight=0
-#      - homepage.widget.type=sonarr
-#      - homepage.widget.url=http://sonarr:8989/sonarr
-#      - homepage.widget.key=${SONARR_API_KEY}
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
 
   radarr:
     image: lscr.io/linuxserver/radarr
@@ -88,60 +46,10 @@ services:
       - ${DATA_ROOT}/qbittorrent/torrents/movies:/data/torrents/movies
       - ${NAS_MEDIA_ROOT}/movies:/data/nas/movies
     restart: always
-    healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:7878/radarr/ping" ]
-      interval: 30s
-      retries: 10
-    ports:
-      - 7878:7878
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.radarr.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/radarr`))
-#      - traefik.http.routers.radarr.tls=true
-#      - traefik.http.routers.radarr.tls.certresolver=myresolver
-#      - traefik.http.services.radarr.loadbalancer.server.port=7878
-#      - homepage.group=Media
-#      - homepage.name=Radarr
-#      - homepage.icon=radarr.png
-#      - homepage.href=/radarr
-#      - homepage.description=Movies management
-#      - homepage.weight=1
-#      - homepage.widget.type=radarr
-#      - homepage.widget.url=http://radarr:7878/radarr
-#      - homepage.widget.key=${RADARR_API_KEY}
-
-  bazarr:
-    image: lscr.io/linuxserver/bazarr
-    container_name: bazarr
-    environment:
-      - PUID=${USER_ID}
-      - PGID=${GROUP_ID}
-      - TZ=${TIMEZONE}
-    volumes:
-      - ${CONFIG_ROOT}/bazarr:/config
-      - ${DATA_ROOT}/bazarr:/data
-    restart: always
-    healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:6767/bazarr/ping" ]
-      interval: 5s
-      retries: 10
-    ports:
-      - 6767:6767
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.bazarr.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/bazarr`))
-#      - traefik.http.routers.bazarr.tls=true
-#      - traefik.http.routers.bazarr.tls.certresolver=myresolver
-#      - traefik.http.services.bazarr.loadbalancer.server.port=6767
-#      - homepage.group=Download
-#      - homepage.name=Bazarr
-#      - homepage.icon=bazarr.png
-#      - homepage.href=/bazarr
-#      - homepage.description=Subtitles management
-#      - homepage.weight=4
-#      - homepage.widget.type=bazarr
-#      - homepage.widget.url=http://bazarr:6767/bazarr
-#      - homepage.widget.key=${BAZARR_API_KEY}
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
 
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
@@ -153,44 +61,24 @@ services:
     volumes:
       - ${CONFIG_ROOT}/prowlarr:/config
     restart: always
-    healthcheck:
-      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:9696/prowlarr/ping" ]
-      interval: 30s
-      retries: 10
-    ports:
-      - 9696:9696
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.prowlarr.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/prowlarr`))
-#      - traefik.http.routers.prowlarr.tls=true
-#      - traefik.http.routers.prowlarr.tls.certresolver=myresolver
-#      - traefik.http.services.prowlarr.loadbalancer.server.port=9696
-#      - homepage.group=Download
-#      - homepage.name=Prowlarr
-#      - homepage.icon=prowlarr.png
-#      - homepage.href=/prowlarr
-#      - homepage.description=Indexers management
-#      - homepage.weight=1
-#      - homepage.widget.type=prowlarr
-#      - homepage.widget.url=http://prowlarr:9696/prowlarr
-#      - homepage.widget.key=${PROWLARR_API_KEY}
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
 
-#  flaresolverr:
-#    image: ghcr.io/flaresolverr/flaresolverr:latest
-#    container_name: flaresolverr
-#    restart: always
-#    environment:
-#      - LOG_LEVEL=${LOG_LEVEL:-info}
-#      - LOG_HTML=${LOG_HTML:-false}
-#      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
-#      - TZ=${TIMEZONE}
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.flaresolverr.rule=PathPrefix(`/flaresolverr`)
-#      - traefik.http.routers.flaresolverr.tls=true
-#      - traefik.http.services.flaresolverr.loadbalancer.server.port=8191
-#    profiles:
-#      - flaresolverr
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: always
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=${TIMEZONE}
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:libtorrentv1
@@ -200,235 +88,107 @@ services:
       - PGID=${GROUP_ID}
       - TZ=${TIMEZONE}
       - WEBUI_PORT=8080
-      - DOCKER_MODS=ghcr.io/gabe565/linuxserver-mod-vuetorrent
     volumes:
       - ${CONFIG_ROOT}/qbittorrent:/config
       - ${DATA_ROOT}/qbittorrent/media:/data/media
       - ${DATA_ROOT}/qbittorrent/torrents:/data/torrents
-    ports:
-      - 8080:8080
-      - 6881:6881
-      - 6881:6881/udp
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 65536  # Increases allowed open files (important for high-speed torrenting)
     restart: always
-    healthcheck:
-      # Container may fail if the PIA's token expired, so mark as unhealthy when there is no internet connection
-      # see: https://github.com/qdm12/gluetun/issues/641#issuecomment-933856220
-      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:8080", "https://google.com" ]
-      interval: 30s
-      retries: 10
-#    network_mode: "service:vpn"
-#    depends_on:
-#      vpn:
-#        condition: service_healthy
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.qbittorrent.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/qbittorrent`))
-#      - traefik.http.routers.qbittorrent.tls=true
-#      - traefik.http.routers.qbittorrent.tls.certresolver=myresolver
-#      - traefik.http.services.qbittorrent.loadbalancer.server.port=8080
-#      - traefik.http.routers.qbittorrent.middlewares=qbittorrent-strip-slash,qbittorrent-stripprefix
-#      # https://github.com/qbittorrent/qBittorrent/issues/5693#issuecomment-552146296
-#      - traefik.http.middlewares.qbittorrent-stripprefix.stripPrefix.prefixes=/qbittorrent
-#      # https://community.traefik.io/t/middleware-to-add-the-if-needed/1895/19
-#      - traefik.http.middlewares.qbittorrent-strip-slash.redirectregex.regex=(^.*\/qbittorrent$$)
-#      - traefik.http.middlewares.qbittorrent-strip-slash.redirectregex.replacement=$$1/
-#      - traefik.http.middlewares.qbittorrent-strip-slash.redirectregex.permanent=false
-#      #- com.centurylinklabs.watchtower.depends-on=/vpn
-#      - homepage.group=Download
-#      - homepage.name=qBittorrent
-#      - homepage.icon=qbittorrent.png
-#      - homepage.href=/qbittorrent
-#      - homepage.description=Bittorrent client
-#      - homepage.weight=2
-#      - homepage.widget.type=qbittorrent
-#      - homepage.widget.url=http://vpn:8080
-#      - homepage.widget.username=${QBITTORRENT_USERNAME}
-#      - homepage.widget.password=${QBITTORRENT_PASSWORD}
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
 
-#  vpn:
-#    image: thrnz/docker-wireguard-pia
-#    container_name: vpn
-#    volumes:
-#      - ${CONFIG_ROOT:-.}/pia:/pia
-#      - ${CONFIG_ROOT:-.}/pia-shared:/pia-shared
-#    cap_add:
-#      - NET_ADMIN
-#      - SYS_MODULE
-#    environment:
-#      - LOC=${PIA_LOCATION}
-#      - USER=${PIA_USER}
-#      - PASS=${PIA_PASS}
-#      - LOCAL_NETWORK=${PIA_LOCAL_NETWORK}
-#      - PORT_FORWARDING=1
-#      - PORT_PERSIST=1
-#      - PORT_SCRIPT=/pia-shared/portupdate-qbittorrent.sh
-#    sysctls:
-#      - net.ipv4.conf.all.src_valid_mark=1
-#      - net.ipv6.conf.default.disable_ipv6=1
-#      - net.ipv6.conf.all.disable_ipv6=1
-#      - net.ipv6.conf.lo.disable_ipv6=1
-#    healthcheck:
-#      test: ping -c 1 www.google.com || exit 1
-#      interval: 30s
-#      timeout: 10s
-#      retries: 3
-#    restart: always
-#    labels:
-#      # network mode is not supported: https://github.com/containrrr/watchtower/issues/1286#issuecomment-1214291660
-#      - com.centurylinklabs.watchtower.enable=false
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    restart: always
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,192.168.68.0/24,100.64.0.0/10
+      - SERVER_COUNTRIES=Switzerland,Iceland
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_ADDRESSES=10.2.0.2/32
+      - VPN_PORT_FORWARDING=on
+    ports:
+      - 7878:7878 # Radarr
+      - 8989:8989 # Sonarr 
+      - 9696:9696 # Prowlarr
+      - 8080:8080      # qbittorrent
+      - 8191:8191 # flaresolver
+      - 4568:4567 # Tachidesk (Host 4568 -> Container 4567)
 
-#  vpn_alternative:
-#    image: ghcr.io/qdm12/gluetun
-#    container_name: gluetun
-#    cap_add:
-#      - NET_ADMIN
-#    devices:
-#      - /dev/net/tun:/dev/net/tun
-##    ports:
-##      # qbittorrent ports
-##      - 8080:8080
-##      - 6881:6881
-##      - 6881:6881/udp
-##      # origw
-##      - 8888:8888/tcp # HTTP proxy
-##      - 8388:8388/tcp # Shadowsocks
-##      - 8388:8388/udp # Shadowsocks
-#    volumes:
-#      - ${CONFIG_ROOT}:/gluetun
-#    environment:
-#      # See https://github.com/qdm12/gluetun-wiki/tree/main/setup#setup
-#      - VPN_SERVICE_PROVIDER=surfshark
-#      - VPN_TYPE=wireguard
-##      # OpenVPN:
-##      - OPENVPN_USER=
-##      - OPENVPN_PASSWORD=
-##      # Wireguard:
-##      - WIREGUARD_PRIVATE_KEY=[private_key_from_surfshark_portal]
-##      - WIREGUARD_ADDRESSES=[ip_range_from_surfshark_portal]
-#      - WIREGUARD_PRIVATE_KEY=wOEI9rqqbDwnN8/Bpp22sVz48T71vJ4fYmFWujulwUU=
-#      - WIREGUARD_ADDRESSES=10.64.222.21/32
-#      # Timezone for accurate log times
-#      - TZ=${TIMEZONE}
-#      # Server list updater
-#      # See https://github.com/qdm12/gluetun-wiki/blob/main/setup/servers.md#update-the-vpn-servers-list
-#      - UPDATER_PERIOD=
-#      - SERVER_COUNTRIES=Italy,Germany,Netherlandn
-#    healthcheck:
-#      test: ping -c 1 www.google.com || exit 1
-#      interval: 30s
-#      timeout: 10s
-#      retries: 3
-#    restart: always
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    network_mode: host
+    environment:
+      - PUID=${USER_ID}
+      - PGID=${GROUP_ID}
+      - TZ=${TIMEZONE}
+    volumes:
+      - ${CONFIG_ROOT:-.}/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    restart: always
+    privileged: true
 
-#  sabnzbd:
-#    image: lscr.io/linuxserver/sabnzbd:latest
-#    container_name: sabnzbd
-#    environment:
-#      - PUID=${USER_ID}
-#      - PGID=${GROUP_ID}
-#      - TZ=${TIMEZONE}
-#    volumes:
-#      - ${CONFIG_ROOT:-.}/sabnzbd:/config
-#      - ${DATA_ROOT}:/data
-#    ports:
-#      - 8080:8088
-#    restart: always
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.sabnzbd.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/sabnzbd`) || PathPrefix(`/sabnzbd`))
-#      - traefik.http.routers.sabnzbd.tls=true
-#      - traefik.http.routers.sabnzbd.tls.certresolver=myresolver
-#      - traefik.http.services.sabnzbd.loadbalancer.server.port=8080
-#      - homepage.group=Download
-#      - homepage.name=Sabnzbd
-#      - homepage.icon=sabnzbd.png
-#      - homepage.href=/sabnzbd
-#      - homepage.description=Usenet
-#      - homepage.weight=3
-#      - homepage.widget.type=sabnzbd
-#      - homepage.widget.url=http://sabnzbd:8080/sabnzbd
-#      - homepage.widget.key=${SABNZBD_API_KEY}
-#    profiles:
-#      - sabnzbd
-
-#  homeassistant:
-#    image: ghcr.io/home-assistant/home-assistant:stable
-#    container_name: homeassistant
-#    network_mode: host
-#    environment:
-#      - PUID=${USER_ID}
-#      - PGID=${GROUP_ID}
-#      - TZ=${TIMEZONE}
-#    volumes:
-#      - ${CONFIG_ROOT:-.}/homeassistant:/config
-#      - /etc/localtime:/etc/localtime:ro
-#      - /run/dbus:/run/dbus:ro
-#    restart: always
-#    healthcheck:
-#      test: [ "CMD", "curl", "--fail", "http://127.0.0.1:8123" ]
-#      interval: 30s
-#      retries: 10
-#    privileged: true
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.homeassistant.rule=(Host(`${HOMEASSISTANT_HOSTNAME}`))
-#      - traefik.http.routers.homeassistant.tls=true
-#      - traefik.http.routers.homeassistant.tls.certresolver=myresolver
-#      - traefik.http.services.homeassistant.loadbalancer.server.port=8123
-#      - homepage.group=Apps
-#      - homepage.name=Home Assistant
-#      - homepage.icon=home-assistant.png
-#      - homepage.href=https://${HOMEASSISTANT_HOSTNAME}
-#      - homepage.description=Open source home automation that puts local control and privacy first
-#      - homepage.weight=3
-#      - homepage.widget.type=homeassistant
-#      - homepage.widget.url=https://${HOMEASSISTANT_HOSTNAME}
-#      - homepage.widget.key=${HOMEASSISTANT_ACCESS_TOKEN}
-#    profiles:
-#      - homeassistant
-
-#  homepage:
-#    image: ghcr.io/gethomepage/homepage:latest
-#    container_name: homepage
-#    environment:
-#      - HOMEPAGE_VAR_TITLE=${HOMEPAGE_VAR_TITLE}
-#      - HOMEPAGE_VAR_SEARCH_PROVIDER=${HOMEPAGE_VAR_SEARCH_PROVIDER}
-#      - HOMEPAGE_VAR_HEADER_STYLE=${HOMEPAGE_VAR_HEADER_STYLE}
-#      - HOMEPAGE_VAR_WEATHER_CITY=${HOMEPAGE_VAR_WEATHER_CITY}
-#      - HOMEPAGE_VAR_WEATHER_LAT=${HOMEPAGE_VAR_WEATHER_LAT}
-#      - HOMEPAGE_VAR_WEATHER_LONG=${HOMEPAGE_VAR_WEATHER_LONG}
-#      - HOMEPAGE_VAR_WEATHER_TIME=${TIMEZONE}
-#      - HOMEPAGE_VAR_WEATHER_UNIT=${HOMEPAGE_VAR_WEATHER_UNIT}
-#    volumes:
-#      - ${CONFIG_ROOT:-.}/homepage:/app/config
-#      - /var/run/docker.sock:/var/run/docker.sock:ro
-#      - ${DATA_ROOT}:/data
-#    restart: always
-#    command: [sh, -c, "cp -n /app/config/tpl/*.yaml /app/config && node server.js"]
-#    labels:
-#      - traefik.enable=true
-#      - traefik.http.routers.homepage.rule=(Host(`${HOSTNAME}`) && PathPrefix(`/`))
-#      - traefik.http.routers.homepage.tls=true
-#      - traefik.http.routers.homepage.tls.certresolver=myresolver
-#      - traefik.http.services.homepage.loadbalancer.server.port=3000
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
     restart: always
     environment:
       - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_REMOVE_VOLUMES=true
+      - DOCKER_API_VERSION=1.40
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-#  autoheal:
-#    image: willfarrell/autoheal:latest
-#    container_name: autoheal
-#    restart: always
-#    environment:
-#      - AUTOHEAL_CONTAINER_LABEL=all
-#    volumes:
-#      - /var/run/docker.sock:/var/run/docker.sock
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    network_mode: host
+    environment:
+      - TS_USERSPACE=false
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_EXTRA_ARGS=--advertise-exit-node --login-server=https://${VPN_DOMAIN} --accept-dns=false
+    volumes:
+      - ${CONFIG_ROOT:-./config}/tailscale:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: always
+    healthcheck:
+      # Healthy = Tailscale daemon is running AND has an active connection to the control plane
+      test: ["CMD", "tailscale", "status", "--json"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - autoheal=true
 
-#  networks:
-#    default:
-#      name: docker-compose-nas
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: always
+    environment:
+      # Only restart containers that opt-in with autoheal=true label
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=30
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

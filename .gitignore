@@ -21,3 +21,19 @@ docker-compose.override.yml
 /adguardhome/work
 /sabnzbd
 /homeassistant
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+terraform.tfvars
+
+# Logs
+*.log
+
+# Ansible Secrets & Configs
+ansible/group_vars/
+ansible/inventory.yml
+

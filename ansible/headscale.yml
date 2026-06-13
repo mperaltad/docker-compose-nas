@@ -1,0 +1,6 @@
+---
+- name: Configure Headscale VPS
+  hosts: vps
+  become: yes
+  roles:
+    - headscale
